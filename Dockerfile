@@ -16,4 +16,16 @@ RUN apt-get update \
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
+# Copy composer files first for better layer caching
+COPY composer.json composer.lock ./
+
+# Install PHP dependencies
+RUN composer install --no-dev --optimize-autoloader --no-scripts --no-interaction
+
+# Copy the rest of the application
+COPY . .
+
+# Generate app key if not set and run post-install scripts
+RUN composer run-script post-autoload-dump || true
+
 EXPOSE 8000
