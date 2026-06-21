@@ -20,6 +20,8 @@ class Trip extends Model
         'start_date',
         'end_date',
         'cover_photo',
+        'category',
+        'is_favorite',
         'status',
     ];
 
@@ -28,6 +30,7 @@ class Trip extends Model
         return [
             'start_date' => 'date:Y-m-d',
             'end_date' => 'date:Y-m-d',
+            'is_favorite' => 'boolean',
         ];
     }
 

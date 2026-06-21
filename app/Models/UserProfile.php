@@ -14,6 +14,7 @@ class UserProfile extends Model
         'user_id',
         'avatar',
         'bio',
+        'location',
         'home_city',
         'home_country',
     ];

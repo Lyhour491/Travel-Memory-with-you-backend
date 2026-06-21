@@ -17,6 +17,9 @@ class StoreTripRequest extends FormRequest
         return [
             'title' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string'],
+            'cover_image' => ['nullable', 'image', 'max:5120'],
+            'category' => ['nullable', 'string', 'max:100'],
+            'is_favorite' => ['nullable', 'boolean'],
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'status' => ['nullable', Rule::in(['planned', 'ongoing', 'completed'])],

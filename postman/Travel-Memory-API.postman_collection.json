@@ -1,0 +1,631 @@
+{
+  "info": {
+    "_postman_id": "7f6d1e51-7a63-4fb6-8c5f-travelmemory",
+    "name": "Travel Memory API",
+    "description": "Ready-to-import requests for testing the Laravel Travel Memory API before connecting the Android app. Import this collection with the matching environment file.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000/api"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('registered', function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.token) pm.environment.set('auth_token', json.data.token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Traveler\",\n  \"email\": \"postman.traveler@example.com\",\n  \"password\": \"password123\",\n  \"password_confirmation\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login Demo User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('logged in', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.token) pm.environment.set('auth_token', json.data.token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"demo@travelmemory.app\",\n  \"password\": \"password123\",\n  \"device_name\": \"Postman\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "logout"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Profile",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "profile"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sokha Traveler\",\n  \"bio\": \"Testing profile update from Postman.\",\n  \"location\": \"Phnom Penh, Cambodia\",\n  \"home_city\": \"Phnom Penh\",\n  \"home_country\": \"Cambodia\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "profile"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Trips",
+      "item": [
+        {
+          "name": "List Trips",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('trips loaded', function () { pm.response.to.have.status(200); });",
+                  "const trips = pm.response.json().data.trips || [];",
+                  "if (trips.length) pm.environment.set('trip_id', trips[0].id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/trips",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "trips"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Trip",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('trip created', function () { pm.response.to.have.status(201); });",
+                  "const trip = pm.response.json().data.trip;",
+                  "if (trip && trip.id) pm.environment.set('trip_id', trip.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman Phnom Penh Walk\",\n  \"description\": \"Testing trip creation before Android integration.\",\n  \"category\": \"City\",\n  \"status\": \"ongoing\",\n  \"start_date\": \"2026-06-20\",\n  \"end_date\": \"2026-06-22\",\n  \"is_favorite\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/trips",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "trips"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Trip Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/trips/{{trip_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "trips",
+                "{{trip_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Toggle Trip Favorite",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/trips/{{trip_id}}/favorite",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "trips",
+                "{{trip_id}}",
+                "favorite"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Movements",
+      "item": [
+        {
+          "name": "Create Movement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('movement created', function () { pm.response.to.have.status(201); });",
+                  "const memory = pm.response.json().data.memory;",
+                  "if (memory && memory.id) pm.environment.set('movement_id', memory.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trip_id\": {{trip_id}},\n  \"title\": \"Postman Riverside Coffee\",\n  \"note\": \"Testing movement creation with JSON first. Use the multipart request for photos.\",\n  \"place\": \"Sisowath Riverside\",\n  \"dateTime\": \"2026-06-20T09:30:00+07:00\",\n  \"location_name\": \"Sisowath Riverside\",\n  \"latitude\": 11.5702000,\n  \"longitude\": 104.9306000,\n  \"address\": \"Cambodia\",\n  \"is_favorite\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/movements",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "movements"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Movement With Photos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "trip_id",
+                  "value": "{{trip_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "title",
+                  "value": "Postman Photo Upload",
+                  "type": "text"
+                },
+                {
+                  "key": "note",
+                  "value": "Select local files for photos[] before sending.",
+                  "type": "text"
+                },
+                {
+                  "key": "place",
+                  "value": "Central Market",
+                  "type": "text"
+                },
+                {
+                  "key": "dateTime",
+                  "value": "2026-06-20T11:00:00+07:00",
+                  "type": "text"
+                },
+                {
+                  "key": "address",
+                  "value": "Cambodia",
+                  "type": "text"
+                },
+                {
+                  "key": "photos[]",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/movements",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "movements"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Movements",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('movements loaded', function () { pm.response.to.have.status(200); });",
+                  "const movements = pm.response.json().data.movements || [];",
+                  "if (movements.length) pm.environment.set('movement_id', movements[0].id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/movements?trip_id={{trip_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "movements"
+              ],
+              "query": [
+                {
+                  "key": "trip_id",
+                  "value": "{{trip_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Movement Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/movements/{{movement_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "movements",
+                "{{movement_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Toggle Movement Favorite",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/movements/{{movement_id}}/favorite",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "movements",
+                "{{movement_id}}",
+                "favorite"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Favorite Movements",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/movements?favorite=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "movements"
+              ],
+              "query": [
+                {
+                  "key": "favorite",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Photos",
+      "item": [
+        {
+          "name": "List Movement Photos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/movements/{{movement_id}}/photos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "movements",
+                "{{movement_id}}",
+                "photos"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Upload Photos To Movement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "photos[]",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/movements/{{movement_id}}/photos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "movements",
+                "{{movement_id}}",
+                "photos"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Dashboard",
+      "item": [
+        {
+          "name": "User Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user/stats",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "user",
+                "stats"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

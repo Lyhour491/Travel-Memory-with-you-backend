@@ -7,14 +7,16 @@ use App\Http\Requests\Trip\StoreTripRequest;
 use App\Http\Requests\Trip\UpdateTripRequest;
 use App\Http\Resources\TripResource;
 use App\Models\Trip;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class TripController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        /** @var \App\Models\User $user */
+        /** @var User $user */
         $user = $request->user();
 
         $trips = Trip::query()
@@ -33,12 +35,15 @@ class TripController extends Controller
 
     public function store(StoreTripRequest $request): JsonResponse
     {
-        /** @var \App\Models\User $user */
+        /** @var User $user */
         $user = $request->user();
 
         $trip = $user->trips()->create([
             'title' => $request->string('title')->toString(),
             'description' => $request->input('description'),
+            'cover_photo' => $request->hasFile('cover_image') ? $request->file('cover_image')->store('trip_covers', 'public') : null,
+            'category' => $request->input('category'),
+            'is_favorite' => $request->boolean('is_favorite'),
             'start_date' => $request->input('start_date'),
             'end_date' => $request->input('end_date'),
             'status' => $request->input('status', 'planned'),
@@ -53,14 +58,15 @@ class TripController extends Controller
         ], 201);
     }
 
-    public function show(Request $request, int $id): JsonResponse
+    public function show(Request $request, int $trip): JsonResponse
     {
-        /** @var \App\Models\User $user */
+        /** @var User $user */
         $user = $request->user();
 
         $trip = Trip::query()
             ->ownedBy($user->id)
-            ->findOrFail($id);
+            ->with('memories.photos')
+            ->findOrFail($trip);
 
         return response()->json([
             'success' => true,
@@ -71,22 +77,34 @@ class TripController extends Controller
         ]);
     }
 
-    public function update(UpdateTripRequest $request, int $id): JsonResponse
+    public function update(UpdateTripRequest $request, int $trip): JsonResponse
     {
-        /** @var \App\Models\User $user */
+        /** @var User $user */
         $user = $request->user();
 
         $trip = Trip::query()
             ->ownedBy($user->id)
-            ->findOrFail($id);
+            ->findOrFail($trip);
 
-        $trip->update([
+        $data = [
             'title' => $request->has('title') ? $request->string('title')->toString() : $trip->title,
             'description' => $request->has('description') ? $request->input('description') : $trip->description,
+            'category' => $request->has('category') ? $request->input('category') : $trip->category,
+            'is_favorite' => $request->has('is_favorite') ? $request->boolean('is_favorite') : $trip->is_favorite,
             'start_date' => $request->has('start_date') ? $request->input('start_date') : $trip->start_date,
             'end_date' => $request->has('end_date') ? $request->input('end_date') : $trip->end_date,
             'status' => $request->has('status') ? $request->input('status') : $trip->status,
-        ]);
+        ];
+
+        if ($request->hasFile('cover_image')) {
+            if ($trip->cover_photo) {
+                Storage::disk('public')->delete($trip->cover_photo);
+            }
+
+            $data['cover_photo'] = $request->file('cover_image')->store('trip_covers', 'public');
+        }
+
+        $trip->update($data);
 
         return response()->json([
             'success' => true,
@@ -97,14 +115,34 @@ class TripController extends Controller
         ]);
     }
 
-    public function destroy(Request $request, int $id): JsonResponse
+    public function toggleFavorite(Request $request, int $trip): JsonResponse
     {
-        /** @var \App\Models\User $user */
+        /** @var User $user */
         $user = $request->user();
 
         $trip = Trip::query()
             ->ownedBy($user->id)
-            ->findOrFail($id);
+            ->findOrFail($trip);
+
+        $trip->update(['is_favorite' => ! $trip->is_favorite]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Trip favorite status updated successfully.',
+            'data' => [
+                'trip' => new TripResource($trip->fresh()),
+            ],
+        ]);
+    }
+
+    public function destroy(Request $request, int $trip): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $trip = Trip::query()
+            ->ownedBy($user->id)
+            ->findOrFail($trip);
 
         $trip->delete();
 

@@ -6,8 +6,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Memory extends Model
 {
@@ -18,19 +18,24 @@ class Memory extends Model
         'user_id',
         'title',
         'note',
+        'date_time',
+        'place',
         'memory_date',
         'location_name',
         'latitude',
         'longitude',
         'address',
+        'is_favorite',
     ];
 
     protected function casts(): array
     {
         return [
             'memory_date' => 'date:Y-m-d',
+            'date_time' => 'datetime',
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
+            'is_favorite' => 'boolean',
         ];
     }
 
@@ -48,8 +53,9 @@ class Memory extends Model
     {
         return $query->where('user_id', $userId);
     }
+
     public function photos(): HasMany
-{
-    return $this->hasMany(MemoryPhoto::class)->orderBy('photo_order');
-}
+    {
+        return $this->hasMany(MemoryPhoto::class)->orderBy('photo_order');
+    }
 }
