@@ -18,7 +18,7 @@
   "variable": [
     {
       "key": "base_url",
-      "value": "http://127.0.0.1:8000/api"
+      "value": "http://127.0.0.1:8000/api/v1"
     }
   ],
   "item": [
@@ -60,11 +60,12 @@
               "raw": "{\n  \"name\": \"Postman Traveler\",\n  \"email\": \"postman.traveler@example.com\",\n  \"password\": \"password123\",\n  \"password_confirmation\": \"password123\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/register",
+              "raw": "{{base_url}}/auth/register",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
+                "auth",
                 "register"
               ]
             }
@@ -105,11 +106,12 @@
               "raw": "{\n  \"email\": \"demo@travelmemory.app\",\n  \"password\": \"password123\",\n  \"device_name\": \"Postman\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/login",
+              "raw": "{{base_url}}/auth/login",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
+                "auth",
                 "login"
               ]
             }
@@ -126,12 +128,59 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/logout",
+              "raw": "{{base_url}}/auth/logout",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
+                "auth",
                 "logout"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Google Sign-In",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Google sign-in succeeded', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.token) pm.environment.set('auth_token', json.data.token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_token\": \"{{google_id_token}}\",\n  \"device_name\": \"Postman\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/google",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "google"
               ]
             }
           }

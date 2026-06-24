@@ -4,12 +4,16 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\GoogleLoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Services\GoogleIdTokenVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Throwable;
 
 class AuthController extends Controller
 {
@@ -80,6 +84,85 @@ class AuthController extends Controller
                 'user' => new UserResource($user),
             ],
         ]);
+    }
+
+    public function google(GoogleLoginRequest $request, GoogleIdTokenVerifier $googleIdTokenVerifier): JsonResponse
+    {
+        try {
+            $payload = $googleIdTokenVerifier->verify($request->string('id_token')->toString());
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Google sign-in is temporarily unavailable.',
+            ], 503);
+        }
+
+        if (! is_array($payload)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid Google ID token.',
+            ], 422);
+        }
+
+        $googleId = $payload['sub'] ?? null;
+        $email = $payload['email'] ?? null;
+        $emailVerified = filter_var($payload['email_verified'] ?? false, FILTER_VALIDATE_BOOL);
+
+        if (! is_string($googleId) || ! is_string($email) || ! $emailVerified) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid Google ID token.',
+            ], 422);
+        }
+
+        $email = Str::lower($email);
+        $user = User::query()->where('google_id', $googleId)->first();
+        $isNewUser = false;
+
+        if (! $user) {
+            $user = User::query()->where('email', $email)->first();
+
+            if ($user && $user->google_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This email address is already connected to another Google account.',
+                ], 409);
+            }
+
+            if ($user) {
+                $user->forceFill([
+                    'google_id' => $googleId,
+                    'email_verified_at' => $user->email_verified_at ?: now(),
+                ])->save();
+            } else {
+                $user = User::query()->create([
+                    'name' => Str::limit((string) ($payload['name'] ?? 'Google user'), 255, ''),
+                    'email' => $email,
+                    'google_id' => $googleId,
+                    'email_verified_at' => now(),
+                    'password' => Str::random(40),
+                ]);
+                $isNewUser = true;
+            }
+        }
+
+        $user->profile()->firstOrCreate();
+        $user->load('profile');
+
+        $deviceName = $request->string('device_name')->toString() ?: ($request->userAgent() ?: 'mobile-app');
+        $token = $user->createToken($deviceName)->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'message' => $isNewUser ? 'Google account registered successfully.' : 'Google sign-in successful.',
+            'data' => [
+                'token' => $token,
+                'token_type' => 'Bearer',
+                'user' => new UserResource($user),
+            ],
+        ], $isNewUser ? 201 : 200);
     }
 
     public function me(): JsonResponse

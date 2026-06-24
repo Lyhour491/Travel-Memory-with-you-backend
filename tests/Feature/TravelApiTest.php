@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Memory;
 use App\Models\Trip;
 use App\Models\User;
+use App\Services\GoogleIdTokenVerifier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -18,7 +19,7 @@ class TravelApiTest extends TestCase
         $user = User::factory()->create();
         Sanctum::actingAs($user);
 
-        $tripResponse = $this->postJson('/api/trips', [
+        $tripResponse = $this->postJson('/api/v1/trips', [
             'title' => 'Siem Reap',
             'description' => 'Temple visit',
             'category' => 'Culture',
@@ -31,7 +32,7 @@ class TravelApiTest extends TestCase
 
         $tripId = $tripResponse->json('data.trip.id');
 
-        $movementResponse = $this->postJson('/api/movements', [
+        $movementResponse = $this->postJson('/api/v1/movements', [
             'trip_id' => $tripId,
             'title' => 'Sunrise',
             'note' => 'Early morning at Angkor Wat',
@@ -44,17 +45,46 @@ class TravelApiTest extends TestCase
             ->assertJsonPath('data.memory.title', 'Sunrise')
             ->assertJsonPath('data.memory.place', 'Angkor Wat');
 
-        $this->getJson('/api/movements?trip_id='.$tripId)
+        $this->getJson('/api/v1/movements?trip_id='.$tripId)
             ->assertOk()
             ->assertJsonPath('data.trip_id', $tripId)
             ->assertJsonCount(1, 'data.movements');
+    }
+
+    public function test_user_can_sign_in_with_a_verified_google_id_token(): void
+    {
+        $verifier = \Mockery::mock(GoogleIdTokenVerifier::class);
+        $verifier->shouldReceive('verify')
+            ->once()
+            ->with('google-id-token')
+            ->andReturn([
+                'sub' => 'google-user-123',
+                'email' => 'traveler@example.com',
+                'email_verified' => true,
+                'name' => 'Google Traveler',
+            ]);
+        $this->app->instance(GoogleIdTokenVerifier::class, $verifier);
+
+        $this->postJson('/api/v1/auth/google', [
+            'id_token' => 'google-id-token',
+            'device_name' => 'Postman',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.user.email', 'traveler@example.com')
+            ->assertJsonStructure(['data' => ['token', 'token_type', 'user']]);
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'traveler@example.com',
+            'google_id' => 'google-user-123',
+        ]);
     }
 
     public function test_global_movement_store_requires_trip_id(): void
     {
         Sanctum::actingAs(User::factory()->create());
 
-        $this->postJson('/api/movements', [
+        $this->postJson('/api/v1/movements', [
             'title' => 'Missing trip',
         ])
             ->assertUnprocessable()
@@ -77,8 +107,8 @@ class TravelApiTest extends TestCase
 
         Sanctum::actingAs($otherUser);
 
-        $this->getJson('/api/trips/'.$trip->id)->assertNotFound();
-        $this->getJson('/api/movements/'.$memory->id)->assertNotFound();
+        $this->getJson('/api/v1/trips/'.$trip->id)->assertNotFound();
+        $this->getJson('/api/v1/movements/'.$memory->id)->assertNotFound();
     }
 
     public function test_favorite_toggle_and_stats_endpoints_work(): void
@@ -97,15 +127,15 @@ class TravelApiTest extends TestCase
             'address' => 'Cambodia',
         ]);
 
-        $this->patchJson('/api/trips/'.$trip->id.'/favorite')
+        $this->patchJson('/api/v1/trips/'.$trip->id.'/favorite')
             ->assertOk()
             ->assertJsonPath('data.trip.is_favorite', true);
 
-        $this->patchJson('/api/movements/'.$memory->id.'/favorite')
+        $this->patchJson('/api/v1/movements/'.$memory->id.'/favorite')
             ->assertOk()
             ->assertJsonPath('data.memory.is_favorite', true);
 
-        $this->getJson('/api/user/stats')
+        $this->getJson('/api/v1/user/stats')
             ->assertOk()
             ->assertJsonPath('data.total_trips', 1)
             ->assertJsonPath('data.total_memories', 1)
