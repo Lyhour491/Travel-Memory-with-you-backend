@@ -41,7 +41,7 @@ class MemoryController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Memories fetched successfully.',
+            'message' => 'Movements fetched successfully.',
             'data' => [
                 'trip_id' => $tripId,
                 'movements' => MemoryResource::collection($memories),
@@ -84,9 +84,9 @@ class MemoryController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Memory created successfully.',
+            'message' => 'Movement created successfully.',
             'data' => [
-                'memory' => new MemoryResource($memory->load('photos')),
+                'movement' => new MemoryResource($memory->load('photos')),
             ],
         ], 201);
     }
@@ -103,9 +103,9 @@ class MemoryController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Memory fetched successfully.',
+            'message' => 'Movement fetched successfully.',
             'data' => [
-                'memory' => new MemoryResource($memory->load('photos')),
+                'movement' => new MemoryResource($memory->load('photos')),
             ],
         ]);
     }
@@ -135,9 +135,9 @@ class MemoryController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Memory updated successfully.',
+            'message' => 'Movement updated successfully.',
             'data' => [
-                'memory' => new MemoryResource($memory->fresh()->load('photos')),
+                'movement' => new MemoryResource($memory->fresh()->load('photos')),
             ],
         ]);
     }
@@ -160,7 +160,7 @@ class MemoryController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Memory deleted successfully.',
+            'message' => 'Movement deleted successfully.',
             'data' => null,
         ]);
     }
@@ -179,9 +179,9 @@ class MemoryController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Memory favorite status updated successfully.',
+            'message' => 'Movement favorite status updated successfully.',
             'data' => [
-                'memory' => new MemoryResource($memory->fresh()->load('photos')),
+                'movement' => new MemoryResource($memory->fresh()->load('photos')),
             ],
         ]);
     }

@@ -17,20 +17,15 @@ class TripResource extends JsonResource
             'title' => $this->title,
             'description' => $this->description,
             'location' => $this->location ?? '',
-            'start_date' => $this->start_date?->toISOString(),
-            'end_date' => $this->end_date?->toISOString(),
             'cover_image' => $this->cover_photo ? asset('storage/'.$this->cover_photo) : null,
             'category' => $this->category,
             'is_favorite' => (bool) $this->is_favorite,
-            'status' => $this->status,
             'movement_count' => $this->memories_count ?? $this->memories()->count(),
             'image_count' => $this->memories()
                 ->withCount('photos')
                 ->get()
                 ->sum('photos_count'),
-            'movements' => MemoryResource::collection($this->whenLoaded('memories')),
             'created_at' => $this->created_at?->toISOString(),
-            'updated_at' => $this->updated_at?->toISOString(),
         ];
     }
 }

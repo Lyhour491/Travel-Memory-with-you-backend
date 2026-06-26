@@ -10,12 +10,11 @@ use App\Models\Trip;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Storage;
 
 class TripController extends Controller
 {
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(Request $request): JsonResponse
     {
         /** @var User $user */
         $user = $request->user();
@@ -26,7 +25,13 @@ class TripController extends Controller
             ->latest('id')
             ->get();
 
-        return TripResource::collection($trips);
+        return response()->json([
+            'success' => true,
+            'message' => 'Trips fetched successfully.',
+            'data' => [
+                'trips' => TripResource::collection($trips),
+            ],
+        ]);
     }
 
     public function store(StoreTripRequest $request): JsonResponse
