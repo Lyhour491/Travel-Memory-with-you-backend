@@ -8,29 +8,25 @@ use App\Http\Requests\Trip\UpdateTripRequest;
 use App\Http\Resources\TripResource;
 use App\Models\Trip;
 use App\Models\User;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Storage;
 
 class TripController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): AnonymousResourceCollection
     {
         /** @var User $user */
         $user = $request->user();
 
         $trips = Trip::query()
             ->ownedBy($user->id)
+            ->withCount('memories')
             ->latest('id')
             ->get();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Trips fetched successfully.',
-            'data' => [
-                'trips' => TripResource::collection($trips),
-            ],
-        ]);
+        return TripResource::collection($trips);
     }
 
     public function store(StoreTripRequest $request): JsonResponse
@@ -41,6 +37,7 @@ class TripController extends Controller
         $trip = $user->trips()->create([
             'title' => $request->string('title')->toString(),
             'description' => $request->input('description'),
+            'location' => $request->input('location'),
             'cover_photo' => $request->hasFile('cover_image') ? $request->file('cover_image')->store('trip_covers', 'public') : null,
             'category' => $request->input('category'),
             'is_favorite' => $request->boolean('is_favorite'),
@@ -89,6 +86,7 @@ class TripController extends Controller
         $data = [
             'title' => $request->has('title') ? $request->string('title')->toString() : $trip->title,
             'description' => $request->has('description') ? $request->input('description') : $trip->description,
+            'location' => $request->has('location') ? $request->input('location') : $trip->location,
             'category' => $request->has('category') ? $request->input('category') : $trip->category,
             'is_favorite' => $request->has('is_favorite') ? $request->boolean('is_favorite') : $trip->is_favorite,
             'start_date' => $request->has('start_date') ? $request->input('start_date') : $trip->start_date,

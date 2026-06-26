@@ -17,6 +17,7 @@ class UpdateTripRequest extends FormRequest
         return [
             'title' => ['sometimes', 'required', 'string', 'max:150'],
             'description' => ['nullable', 'string'],
+            'location' => ['nullable', 'string', 'max:255'],
             'cover_image' => ['nullable', 'image', 'max:5120'],
             'category' => ['nullable', 'string', 'max:100'],
             'is_favorite' => ['nullable', 'boolean'],

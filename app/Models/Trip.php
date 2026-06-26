@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Trip extends Model
@@ -17,6 +18,7 @@ class Trip extends Model
         'user_id',
         'title',
         'description',
+        'location',
         'start_date',
         'end_date',
         'cover_photo',
@@ -42,6 +44,11 @@ class Trip extends Model
     public function memories(): HasMany
     {
         return $this->hasMany(Memory::class);
+    }
+
+    public function photos(): HasManyThrough
+    {
+        return $this->hasManyThrough(MemoryPhoto::class, Memory::class);
     }
 
     public function scopeOwnedBy(Builder $query, int $userId): Builder
