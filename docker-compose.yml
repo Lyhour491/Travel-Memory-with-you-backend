@@ -31,6 +31,7 @@ services:
       DB_DATABASE: travel_with_you
       DB_USERNAME: root
       DB_PASSWORD: rootpass
+      GOOGLE_CLIENT_ID: 329973569180-ml8crcgkugavvdtorrc4q9lo8s1pq4ma.apps.googleusercontent.com
     command: >
       sh -c "php artisan key:generate --force &&
              php artisan migrate --force &&

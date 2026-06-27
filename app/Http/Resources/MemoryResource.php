@@ -12,17 +12,25 @@ class MemoryResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $location = $this->place ?? $this->location_name ?? $this->address;
+        $date = $this->date_time ?? $this->memory_date;
+        $firstPhoto = $this->relationLoaded('photos') ? $this->photos->first() : null;
+
         return [
             'id' => $this->id,
             'trip_id' => $this->trip_id,
             'title' => $this->title,
+            'description' => $this->note,
+            'location' => $location,
             'note' => $this->note,
-            'place' => $this->place ?? $this->location_name,
-            'date_time' => $this->date_time?->toISOString() ?? $this->memory_date?->toISOString(),
+            'place' => $location,
+            'date' => $date?->format('Y-m-d'),
+            'date_time' => $date?->toISOString(),
             'location_name' => $this->location_name,
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,
             'address' => $this->address,
+            'image_url' => $firstPhoto?->photo_path ? asset('storage/'.$firstPhoto->photo_path) : null,
             'is_favorite' => (bool) $this->is_favorite,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
