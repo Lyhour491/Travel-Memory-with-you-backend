@@ -82,11 +82,14 @@ class MemoryController extends Controller
             ]);
         }
 
+        $memoryResource = new MemoryResource($memory->load('photos'));
+
         return response()->json([
             'success' => true,
             'message' => 'Movement created successfully.',
             'data' => [
-                'movement' => new MemoryResource($memory->load('photos')),
+                'memory' => $memoryResource,
+                'movement' => $memoryResource,
             ],
         ], 201);
     }
@@ -101,11 +104,14 @@ class MemoryController extends Controller
             ->with('photos')
             ->findOrFail($memory);
 
+        $memoryResource = new MemoryResource($memory->load('photos'));
+
         return response()->json([
             'success' => true,
             'message' => 'Movement fetched successfully.',
             'data' => [
-                'movement' => new MemoryResource($memory->load('photos')),
+                'memory' => $memoryResource,
+                'movement' => $memoryResource,
             ],
         ]);
     }
@@ -133,11 +139,14 @@ class MemoryController extends Controller
             'is_favorite' => $request->has('is_favorite') ? $request->boolean('is_favorite') : $memory->is_favorite,
         ]);
 
+        $memoryResource = new MemoryResource($memory->fresh()->load('photos'));
+
         return response()->json([
             'success' => true,
             'message' => 'Movement updated successfully.',
             'data' => [
-                'movement' => new MemoryResource($memory->fresh()->load('photos')),
+                'memory' => $memoryResource,
+                'movement' => $memoryResource,
             ],
         ]);
     }
@@ -177,11 +186,14 @@ class MemoryController extends Controller
 
         $memory->update(['is_favorite' => ! $memory->is_favorite]);
 
+        $memoryResource = new MemoryResource($memory->fresh()->load('photos'));
+
         return response()->json([
             'success' => true,
             'message' => 'Movement favorite status updated successfully.',
             'data' => [
-                'movement' => new MemoryResource($memory->fresh()->load('photos')),
+                'memory' => $memoryResource,
+                'movement' => $memoryResource,
             ],
         ]);
     }

@@ -54,6 +54,8 @@ Route::prefix('v1')->group(function () {
             Route::put('/{memory}', [MemoryController::class, 'update']);
             Route::delete('/{memory}', [MemoryController::class, 'destroy']);
             Route::patch('/{memory}/favorite', [MemoryController::class, 'toggleFavorite']);
+            Route::get('/{memory}/photos', [MemoryPhotoController::class, 'index']);
+            Route::post('/{memory}/photos', [MemoryPhotoController::class, 'upload']);
         });
 
         Route::delete('/photos/{photo}', [MemoryPhotoController::class, 'destroy']);
