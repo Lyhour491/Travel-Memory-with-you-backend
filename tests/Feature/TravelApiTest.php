@@ -173,6 +173,74 @@ class TravelApiTest extends TestCase
         ]);
     }
 
+    public function test_change_password_requires_authentication(): void
+    {
+        $this->postJson('/api/v1/auth/change-password', [
+            'current_password' => 'oldpassword123',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ])
+            ->assertUnauthorized();
+    }
+
+    public function test_change_password_rejects_wrong_current_password(): void
+    {
+        $user = User::factory()->create([
+            'password' => 'oldpassword123',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/v1/auth/change-password', [
+            'current_password' => 'wrongpassword',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Current password is incorrect.');
+
+        $this->assertTrue(Hash::check('oldpassword123', $user->fresh()->password));
+    }
+
+    public function test_change_password_updates_password_and_keeps_forgot_reset_flow_separate(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'traveler@example.com',
+            'password' => 'oldpassword123',
+        ]);
+        $currentToken = $user->createToken('current-token')->accessToken;
+        $oldToken = $user->createToken('old-token')->accessToken;
+
+        $this->actingAs($user->withAccessToken($currentToken), 'sanctum');
+
+        DB::table('password_reset_tokens')->insert([
+            'email' => $user->email,
+            'token' => Hash::make('123456'),
+            'created_at' => now(),
+        ]);
+
+        $this->postJson('/api/v1/auth/change-password', [
+            'current_password' => 'oldpassword123',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Password changed successfully.');
+
+        $this->assertTrue(Hash::check('newpassword123', $user->fresh()->password));
+        $this->assertDatabaseHas('personal_access_tokens', [
+            'id' => $currentToken->id,
+        ]);
+        $this->assertDatabaseMissing('personal_access_tokens', [
+            'id' => $oldToken->id,
+        ]);
+        $this->assertDatabaseHas('password_reset_tokens', [
+            'email' => $user->email,
+        ]);
+    }
+
     public function test_global_movement_store_requires_trip_id(): void
     {
         Sanctum::actingAs(User::factory()->create());
