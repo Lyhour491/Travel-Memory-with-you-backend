@@ -13,6 +13,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
         Route::post('/google', [AuthController::class, 'google']);
+        Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+        Route::post('/verify-reset-code', [AuthController::class, 'verifyResetCode']);
+        Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
         Route::middleware('auth:sanctum')->group(function () {
             Route::get('/me', [AuthController::class, 'me']);

@@ -9,14 +9,20 @@ use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\GoogleIdTokenVerifier;
+use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Throwable;
 
 class AuthController extends Controller
 {
+    private const PASSWORD_RESET_CODE_EXPIRY_MINUTES = 15;
+
     public function register(RegisterRequest $request): JsonResponse
     {
         $user = User::query()->create([
@@ -165,6 +171,107 @@ class AuthController extends Controller
         ], $isNewUser ? 201 : 200);
     }
 
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $email = Str::lower($validated['email']);
+        $user = User::query()->where('email', $email)->first();
+
+        if ($user) {
+            $code = (string) random_int(100000, 999999);
+
+            DB::table('password_reset_tokens')->updateOrInsert(
+                ['email' => $email],
+                [
+                    'token' => Hash::make($code),
+                    'created_at' => now(),
+                ],
+            );
+
+            Mail::raw(
+                "Your Travel With You password reset code is {$code}. This code expires in ".self::PASSWORD_RESET_CODE_EXPIRY_MINUTES.' minutes.',
+                function ($message) use ($email) {
+                    $message->to($email)->subject('Your password reset code');
+                }
+            );
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'If an account exists for this email, a password reset code has been sent.',
+        ]);
+    }
+
+    public function verifyResetCode(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+            'code' => ['required', 'digits:6'],
+        ]);
+
+        if (! $this->validPasswordResetCode(Str::lower($validated['email']), $validated['code'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid or expired password reset code.',
+                'errors' => [
+                    'code' => ['The provided password reset code is invalid or expired.'],
+                ],
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password reset code verified successfully.',
+        ]);
+    }
+
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+            'code' => ['required', 'digits:6'],
+            'password' => ['required', 'confirmed', 'min:8'],
+        ]);
+
+        $email = Str::lower($validated['email']);
+
+        if (! $this->validPasswordResetCode($email, $validated['code'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid or expired password reset code.',
+                'errors' => [
+                    'code' => ['The provided password reset code is invalid or expired.'],
+                ],
+            ], 422);
+        }
+
+        $user = User::query()->where('email', $email)->first();
+
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid or expired password reset code.',
+                'errors' => [
+                    'code' => ['The provided password reset code is invalid or expired.'],
+                ],
+            ], 422);
+        }
+
+        $user->forceFill([
+            'password' => Hash::make($validated['password']),
+        ])->save();
+
+        DB::table('password_reset_tokens')->where('email', $email)->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password reset successfully.',
+        ]);
+    }
+
     public function me(): JsonResponse
     {
         /** @var \App\Models\User $user */
@@ -197,5 +304,20 @@ class AuthController extends Controller
             'message' => 'Logout successful.',
             'data' => null,
         ]);
+    }
+
+    private function validPasswordResetCode(string $email, string $code): bool
+    {
+        $record = DB::table('password_reset_tokens')->where('email', $email)->first();
+
+        if (! $record || ! $record->created_at) {
+            return false;
+        }
+
+        if (Carbon::parse($record->created_at)->lessThan(now()->subMinutes(self::PASSWORD_RESET_CODE_EXPIRY_MINUTES))) {
+            return false;
+        }
+
+        return Hash::check($code, $record->token);
     }
 }

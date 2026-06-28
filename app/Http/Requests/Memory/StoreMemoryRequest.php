@@ -31,6 +31,8 @@ class StoreMemoryRequest extends FormRequest
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'address' => ['nullable', 'string', 'max:255'],
+            'images' => ['nullable', 'array'],
+            'images.*' => ['image', 'max:5120'],
             'photos' => ['nullable', 'array'],
             'photos.*' => ['image', 'max:5120'],
         ];

@@ -7,6 +7,10 @@ use App\Models\Trip;
 use App\Models\User;
 use App\Services\GoogleIdTokenVerifier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -80,6 +84,95 @@ class TravelApiTest extends TestCase
         ]);
     }
 
+    public function test_forgot_password_stores_hashed_reset_code_for_existing_user(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'traveler@example.com',
+        ]);
+
+        $this->postJson('/api/v1/auth/forgot-password', [
+            'email' => strtoupper($user->email),
+        ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $record = DB::table('password_reset_tokens')->where('email', $user->email)->first();
+
+        $this->assertNotNull($record);
+        $this->assertNotNull($record->created_at);
+        $this->assertFalse(preg_match('/^\d{6}$/', $record->token) === 1);
+    }
+
+    public function test_forgot_password_returns_success_for_unknown_email(): void
+    {
+        $this->postJson('/api/v1/auth/forgot-password', [
+            'email' => 'missing@example.com',
+        ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+    }
+
+    public function test_verify_reset_code_checks_hash_and_expiry(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'traveler@example.com',
+        ]);
+
+        DB::table('password_reset_tokens')->insert([
+            'email' => $user->email,
+            'token' => Hash::make('123456'),
+            'created_at' => now(),
+        ]);
+
+        $this->postJson('/api/v1/auth/verify-reset-code', [
+            'email' => $user->email,
+            'code' => '123456',
+        ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        DB::table('password_reset_tokens')->where('email', $user->email)->update([
+            'created_at' => now()->subMinutes(16),
+        ]);
+
+        $this->postJson('/api/v1/auth/verify-reset-code', [
+            'email' => $user->email,
+            'code' => '123456',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('success', false)
+            ->assertJsonValidationErrors('code');
+    }
+
+    public function test_reset_password_updates_password_and_deletes_reset_token(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'traveler@example.com',
+            'password' => 'oldpassword123',
+        ]);
+
+        DB::table('password_reset_tokens')->insert([
+            'email' => $user->email,
+            'token' => Hash::make('123456'),
+            'created_at' => now(),
+        ]);
+
+        $this->postJson('/api/v1/auth/reset-password', [
+            'email' => $user->email,
+            'code' => '123456',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Password reset successfully.');
+
+        $this->assertTrue(Hash::check('newpassword123', $user->fresh()->password));
+        $this->assertDatabaseMissing('password_reset_tokens', [
+            'email' => $user->email,
+        ]);
+    }
+
     public function test_global_movement_store_requires_trip_id(): void
     {
         Sanctum::actingAs(User::factory()->create());
@@ -89,6 +182,57 @@ class TravelApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('trip_id');
+    }
+
+    public function test_trip_movement_store_uses_route_trip_id_and_accepts_android_multipart_fields(): void
+    {
+        Storage::fake('public');
+
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $routeTrip = Trip::query()->create([
+            'user_id' => $user->id,
+            'title' => 'Route trip',
+        ]);
+        $requestTrip = Trip::query()->create([
+            'user_id' => $user->id,
+            'title' => 'Request trip',
+        ]);
+
+        $response = $this->post('/api/v1/trips/'.$routeTrip->id.'/movements', [
+            'trip_id' => $requestTrip->id,
+            'title' => 'Android upload',
+            'note' => 'Multipart note',
+            'place' => 'Bangkok',
+            'date_time' => '2026-06-20 06:00:00',
+            'latitude' => '13.756331',
+            'longitude' => '100.501762',
+            'is_favorite' => '1',
+            'images' => [
+                UploadedFile::fake()->createWithContent(
+                    'movement.png',
+                    base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=')
+                ),
+            ],
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.memory.trip_id', $routeTrip->id)
+            ->assertJsonPath('data.memory.title', 'Android upload')
+            ->assertJsonPath('data.memory.is_favorite', true)
+            ->assertJsonCount(1, 'data.memory.photos');
+
+        $memory = Memory::query()->where('title', 'Android upload')->firstOrFail();
+
+        $this->assertSame($routeTrip->id, $memory->trip_id);
+        $this->assertTrue($memory->is_favorite);
+        $this->assertDatabaseHas('memory_photos', [
+            'memory_id' => $memory->id,
+            'photo_order' => 0,
+        ]);
+        Storage::disk('public')->assertExists($memory->photos()->firstOrFail()->photo_path);
     }
 
     public function test_user_cannot_access_another_users_trip_or_movement(): void

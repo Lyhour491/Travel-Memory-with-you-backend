@@ -74,7 +74,7 @@ class MemoryController extends Controller
             'is_favorite' => $request->boolean('is_favorite'),
         ]);
 
-        foreach ($request->file('photos', []) as $index => $file) {
+        foreach ($this->uploadedMemoryImages($request) as $index => $file) {
             MemoryPhoto::query()->create([
                 'memory_id' => $memory->id,
                 'photo_path' => $file->store('memory_photos', 'public'),
@@ -196,5 +196,13 @@ class MemoryController extends Controller
                 'movement' => $memoryResource,
             ],
         ]);
+    }
+
+    private function uploadedMemoryImages(Request $request): array
+    {
+        return array_values(array_merge(
+            $request->file('images', []),
+            $request->file('photos', []),
+        ));
     }
 }
