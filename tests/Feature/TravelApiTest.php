@@ -303,6 +303,195 @@ class TravelApiTest extends TestCase
         Storage::disk('public')->assertExists($memory->photos()->firstOrFail()->photo_path);
     }
 
+    public function test_user_can_upload_photos_to_movement(): void
+    {
+        Storage::fake('public');
+
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $trip = Trip::query()->create([
+            'user_id' => $user->id,
+            'title' => 'Photo trip',
+        ]);
+        $memory = Memory::query()->create([
+            'trip_id' => $trip->id,
+            'user_id' => $user->id,
+            'title' => 'Photo memory',
+        ]);
+
+        $response = $this->post('/api/v1/movements/'.$memory->id.'/photos', [
+            'photos' => [
+                UploadedFile::fake()->createWithContent(
+                    'first.png',
+                    base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=')
+                ),
+                UploadedFile::fake()->createWithContent(
+                    'second.png',
+                    base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=')
+                ),
+            ],
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonStructure(['data' => ['photos' => [['id', 'url', 'order']]]]);
+
+        $memory->refresh();
+
+        $this->assertCount(2, $memory->photos);
+
+        foreach ($memory->photos as $photo) {
+            $this->assertStringStartsWith('memory_photos/', $photo->photo_path);
+            Storage::disk('public')->assertExists($photo->photo_path);
+        }
+    }
+
+    public function test_owner_can_delete_photo_and_file_but_other_users_cannot(): void
+    {
+        Storage::fake('public');
+
+        $owner = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $trip = Trip::query()->create([
+            'user_id' => $owner->id,
+            'title' => 'Private photo trip',
+        ]);
+        $memory = Memory::query()->create([
+            'trip_id' => $trip->id,
+            'user_id' => $owner->id,
+            'title' => 'Private photo memory',
+        ]);
+
+        $path = UploadedFile::fake()->createWithContent(
+            'private.png',
+            base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=')
+        )->store('memory_photos', 'public');
+        $photo = $memory->photos()->create([
+            'photo_path' => $path,
+            'photo_order' => 0,
+        ]);
+
+        Sanctum::actingAs($otherUser);
+
+        $this->deleteJson('/api/v1/photos/'.$photo->id)->assertNotFound();
+        Storage::disk('public')->assertExists($path);
+        $this->assertDatabaseHas('memory_photos', ['id' => $photo->id]);
+
+        Sanctum::actingAs($owner);
+
+        $this->deleteJson('/api/v1/photos/'.$photo->id)
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        Storage::disk('public')->assertMissing($path);
+        $this->assertDatabaseMissing('memory_photos', ['id' => $photo->id]);
+    }
+
+    public function test_user_can_update_profile_with_avatar(): void
+    {
+        Storage::fake('public');
+
+        $user = User::factory()->create([
+            'name' => 'Old Name',
+        ]);
+        Sanctum::actingAs($user);
+
+        $response = $this->post('/api/v1/profile', [
+            'name' => 'New Name',
+            'bio' => 'Travel notes',
+            'location' => 'Bangkok',
+            'avatar' => UploadedFile::fake()->createWithContent(
+                'avatar.png',
+                base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=')
+            ),
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.user.name', 'New Name')
+            ->assertJsonPath('data.user.bio', 'Travel notes')
+            ->assertJsonPath('data.user.location', 'Bangkok')
+            ->assertJsonStructure(['data' => ['user' => ['avatar_url']]]);
+
+        $user->refresh()->load('profile');
+
+        $this->assertStringStartsWith('avatars/', $user->profile->avatar);
+        Storage::disk('public')->assertExists($user->profile->avatar);
+        $this->assertSame(asset('storage/'.$user->profile->avatar), $response->json('data.user.avatar_url'));
+    }
+
+    public function test_authenticated_user_can_delete_account_and_related_data(): void
+    {
+        Storage::fake('public');
+
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $token = $user->createToken('delete-account-test')->accessToken;
+        $otherToken = $otherUser->createToken('other-token')->accessToken;
+
+        $avatarPath = UploadedFile::fake()->createWithContent(
+            'avatar.png',
+            base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=')
+        )->store('avatars', 'public');
+        $photoPath = UploadedFile::fake()->createWithContent(
+            'photo.png',
+            base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=')
+        )->store('memory_photos', 'public');
+        $coverPath = UploadedFile::fake()->createWithContent(
+            'cover.png',
+            base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=')
+        )->store('trip_covers', 'public');
+
+        $user->profile()->create([
+            'avatar' => $avatarPath,
+            'bio' => 'Delete me',
+            'location' => 'Bangkok',
+        ]);
+        $trip = Trip::query()->create([
+            'user_id' => $user->id,
+            'title' => 'Account delete trip',
+            'cover_photo' => $coverPath,
+        ]);
+        $memory = Memory::query()->create([
+            'trip_id' => $trip->id,
+            'user_id' => $user->id,
+            'title' => 'Account delete memory',
+        ]);
+        $photo = $memory->photos()->create([
+            'photo_path' => $photoPath,
+            'photo_order' => 0,
+        ]);
+        $otherTrip = Trip::query()->create([
+            'user_id' => $otherUser->id,
+            'title' => 'Other trip',
+        ]);
+
+        $this->actingAs($user->withAccessToken($token), 'sanctum');
+
+        $this->deleteJson('/api/v1/account')
+            ->assertOk()
+            ->assertExactJson([
+                'success' => true,
+                'message' => 'Account deleted successfully.',
+            ]);
+
+        $this->assertDatabaseMissing('users', ['id' => $user->id]);
+        $this->assertDatabaseMissing('user_profiles', ['user_id' => $user->id]);
+        $this->assertDatabaseMissing('trips', ['id' => $trip->id]);
+        $this->assertDatabaseMissing('memories', ['id' => $memory->id]);
+        $this->assertDatabaseMissing('memory_photos', ['id' => $photo->id]);
+        $this->assertDatabaseMissing('personal_access_tokens', ['id' => $token->id]);
+
+        $this->assertDatabaseHas('users', ['id' => $otherUser->id]);
+        $this->assertDatabaseHas('trips', ['id' => $otherTrip->id]);
+        $this->assertDatabaseHas('personal_access_tokens', ['id' => $otherToken->id]);
+
+        Storage::disk('public')->assertMissing($avatarPath);
+        Storage::disk('public')->assertMissing($photoPath);
+        Storage::disk('public')->assertMissing($coverPath);
+    }
+
     public function test_user_cannot_access_another_users_trip_or_movement(): void
     {
         $owner = User::factory()->create();

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\MemoryController;
 use App\Http\Controllers\Api\V1\MemoryPhotoController;
 use App\Http\Controllers\Api\V1\ProfileController;
@@ -27,6 +28,7 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/profile', [ProfileController::class, 'show']);
         Route::match(['put', 'patch', 'post'], '/profile', [ProfileController::class, 'update']);
+        Route::delete('/account', [AccountController::class, 'destroy']);
         Route::get('/user/stats', [UserStatsController::class, 'show']);
 
         Route::prefix('trips')->group(function () {
