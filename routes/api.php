@@ -44,6 +44,11 @@ Route::prefix('v1')->group(function () {
         Route::prefix('trips')->group(function () {
             Route::get('/', [TripController::class, 'index']);
             Route::post('/', [TripController::class, 'store']);
+            Route::get('/drafts', [TripController::class, 'drafts']);
+            Route::post('/drafts', [TripController::class, 'storeDraft']);
+            Route::put('/drafts/{trip}', [TripController::class, 'updateDraft']);
+            Route::delete('/drafts/{trip}', [TripController::class, 'destroyDraft']);
+            Route::post('/drafts/{trip}/publish', [TripController::class, 'publishDraft']);
             Route::get('/{trip}', [TripController::class, 'show']);
             Route::put('/{trip}', [TripController::class, 'update']);
             Route::delete('/{trip}', [TripController::class, 'destroy']);

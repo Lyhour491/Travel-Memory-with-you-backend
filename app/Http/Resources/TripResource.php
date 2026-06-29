@@ -20,6 +20,7 @@ class TripResource extends JsonResource
             'start_date' => $this->start_date?->format('Y-m-d'),
             'end_date' => $this->end_date?->format('Y-m-d'),
             'status' => $this->status,
+            'is_draft' => $this->status === 'draft',
             'cover_image' => $this->cover_photo ? asset('storage/'.$this->cover_photo) : null,
             'category' => $this->category,
             'is_favorite' => (bool) $this->is_favorite,

@@ -11,6 +11,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -34,6 +35,7 @@ class DraftMemoryController extends Controller
             'message' => 'Drafts fetched successfully.',
             'data' => [
                 'drafts' => MemoryResource::collection($drafts),
+                'movements' => MemoryResource::collection($drafts),
             ],
         ]);
     }
@@ -49,22 +51,32 @@ class DraftMemoryController extends Controller
             Trip::query()->ownedBy($user->id)->findOrFail($data['trip_id']);
         }
 
-        $draft = Memory::query()->create($this->memoryData($request, $user, 'draft'));
+        try {
+            $draft = Memory::query()->create($this->memoryData($request, $user, 'draft'));
 
-        foreach ($this->uploadedMemoryImages($request) as $index => $file) {
-            MemoryPhoto::query()->create([
-                'memory_id' => $draft->id,
-                'photo_path' => $file->store('memory_photos', 'public'),
-                'photo_order' => $index,
+            foreach ($this->uploadedMemoryImages($request) as $index => $file) {
+                MemoryPhoto::query()->create([
+                    'memory_id' => $draft->id,
+                    'photo_path' => $file->store('memory_photos', 'public'),
+                    'photo_order' => $index,
+                ]);
+            }
+        } catch (\Throwable $exception) {
+            Log::error('Draft memory creation failed.', [
+                'user_id' => $user->id,
+                'error' => $exception->getMessage(),
             ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Draft could not be saved. Please try again.',
+            ], 500);
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Draft created successfully.',
-            'data' => [
-                'draft' => new MemoryResource($draft->load('photos')),
-            ],
+            'message' => 'Draft saved successfully.',
+            'data' => $this->resourceAliases($draft->load('photos')),
         ], 201);
     }
 
@@ -75,9 +87,7 @@ class DraftMemoryController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Draft fetched successfully.',
-            'data' => [
-                'draft' => new MemoryResource($draft),
-            ],
+            'data' => $this->resourceAliases($draft),
         ]);
     }
 
@@ -98,9 +108,7 @@ class DraftMemoryController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Draft updated successfully.',
-            'data' => [
-                'draft' => new MemoryResource($draft->fresh()->load('photos')),
-            ],
+            'data' => $this->resourceAliases($draft->fresh()->load('photos')),
         ]);
     }
 
@@ -163,10 +171,17 @@ class DraftMemoryController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Draft published successfully.',
-            'data' => [
-                'draft' => new MemoryResource($draft->fresh()->load('photos')),
-            ],
+            'data' => $this->resourceAliases($draft->fresh()->load('photos')),
         ]);
+    }
+
+    private function resourceAliases(Memory $memory): array
+    {
+        return [
+            'draft' => new MemoryResource($memory),
+            'movement' => new MemoryResource($memory),
+            'memory' => new MemoryResource($memory),
+        ];
     }
 
     private function draftForUser(Request $request, int $memory): Memory

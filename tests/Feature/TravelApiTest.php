@@ -509,7 +509,10 @@ class TravelApiTest extends TestCase
 
         $createResponse
             ->assertCreated()
+            ->assertJsonPath('message', 'Draft saved successfully.')
             ->assertJsonPath('data.draft.status', 'draft')
+            ->assertJsonPath('data.movement.status', 'draft')
+            ->assertJsonPath('data.memory.status', 'draft')
             ->assertJsonPath('data.draft.is_draft', true)
             ->assertJsonPath('data.draft.title', null)
             ->assertJsonPath('data.draft.trip_id', null);
@@ -523,6 +526,8 @@ class TravelApiTest extends TestCase
         $this->getJson('/api/v1/drafts')
             ->assertOk()
             ->assertJsonCount(1, 'data.drafts')
+            ->assertJsonCount(1, 'data.movements')
+            ->assertJsonPath('data.movements.0.status', 'draft')
             ->assertJsonPath('data.drafts.0.id', $draftId);
 
         $this->putJson('/api/v1/drafts/'.$draftId, [
@@ -532,11 +537,15 @@ class TravelApiTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('data.draft.title', 'Ready memory')
+            ->assertJsonPath('data.movement.title', 'Ready memory')
+            ->assertJsonPath('data.memory.title', 'Ready memory')
             ->assertJsonPath('data.draft.trip_id', $trip->id);
 
         $this->postJson('/api/v1/drafts/'.$draftId.'/publish')
             ->assertOk()
             ->assertJsonPath('data.draft.status', 'published')
+            ->assertJsonPath('data.movement.status', 'published')
+            ->assertJsonPath('data.memory.status', 'published')
             ->assertJsonPath('data.draft.is_draft', false);
 
         $this->getJson('/api/v1/drafts')
@@ -547,6 +556,88 @@ class TravelApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data.movements')
             ->assertJsonPath('data.movements.0.id', $draftId);
+    }
+
+    public function test_user_can_create_list_publish_and_delete_trip_drafts(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $draftResponse = $this->postJson('/api/v1/trips/drafts', [
+            'description' => 'Trip idea before title exists',
+            'location' => 'Cambodia',
+        ]);
+
+        $draftResponse
+            ->assertCreated()
+            ->assertJsonPath('message', 'Trip draft saved successfully.')
+            ->assertJsonPath('data.draft.status', 'draft')
+            ->assertJsonPath('data.trip.status', 'draft')
+            ->assertJsonPath('data.trip.is_draft', true);
+
+        $draftId = $draftResponse->json('data.trip.id');
+
+        $this->getJson('/api/v1/trips')
+            ->assertOk()
+            ->assertJsonCount(0, 'data.trips');
+
+        $this->getJson('/api/v1/trips/drafts')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.trips')
+            ->assertJsonPath('data.trips.0.id', $draftId);
+
+        $this->putJson('/api/v1/trips/drafts/'.$draftId, [
+            'title' => 'Updated trip draft',
+            'location' => 'Siem Reap',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.trip.title', 'Updated trip draft')
+            ->assertJsonPath('data.trip.location', 'Siem Reap')
+            ->assertJsonPath('data.trip.status', 'draft');
+
+        $this->postJson('/api/v1/trips/drafts/'.$draftId.'/publish')
+            ->assertOk()
+            ->assertJsonPath('data.trip.status', 'planned')
+            ->assertJsonPath('data.trip.is_draft', false);
+
+        $emptyDraftId = $this->postJson('/api/v1/trips/drafts', [
+            'title' => '',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.trip.title', 'Untitled Trip')
+            ->json('data.trip.id');
+
+        $this->getJson('/api/v1/trips')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.trips')
+            ->assertJsonPath('data.trips.0.id', $draftId);
+
+        $this->deleteJson('/api/v1/trips/drafts/'.$emptyDraftId)
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseMissing('trips', ['id' => $emptyDraftId]);
+    }
+
+    public function test_user_cannot_publish_or_delete_another_users_trip_draft(): void
+    {
+        $owner = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $draft = Trip::query()->create([
+            'user_id' => $owner->id,
+            'title' => 'Private trip draft',
+            'status' => 'draft',
+        ]);
+
+        Sanctum::actingAs($otherUser);
+
+        $this->deleteJson('/api/v1/trips/drafts/'.$draft->id)->assertNotFound();
+        $this->postJson('/api/v1/trips/drafts/'.$draft->id.'/publish')->assertNotFound();
+
+        $this->assertDatabaseHas('trips', [
+            'id' => $draft->id,
+            'status' => 'draft',
+        ]);
     }
 
     public function test_publish_draft_requires_title_trip_and_owned_trip(): void

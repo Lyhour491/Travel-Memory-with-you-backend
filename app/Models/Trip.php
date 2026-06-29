@@ -55,4 +55,14 @@ class Trip extends Model
     {
         return $query->where('user_id', $userId);
     }
+
+    public function scopeDrafts(Builder $query): Builder
+    {
+        return $query->where('status', 'draft');
+    }
+
+    public function scopePublished(Builder $query): Builder
+    {
+        return $query->where('status', '!=', 'draft');
+    }
 }
