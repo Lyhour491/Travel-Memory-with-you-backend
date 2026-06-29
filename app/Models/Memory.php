@@ -26,6 +26,7 @@ class Memory extends Model
         'longitude',
         'address',
         'is_favorite',
+        'status',
     ];
 
     protected function casts(): array
@@ -52,6 +53,16 @@ class Memory extends Model
     public function scopeOwnedBy(Builder $query, int $userId): Builder
     {
         return $query->where('user_id', $userId);
+    }
+
+    public function scopeDrafts(Builder $query): Builder
+    {
+        return $query->where('status', 'draft');
+    }
+
+    public function scopePublished(Builder $query): Builder
+    {
+        return $query->where('status', 'published');
     }
 
     public function photos(): HasMany

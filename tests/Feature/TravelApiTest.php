@@ -492,6 +492,148 @@ class TravelApiTest extends TestCase
         Storage::disk('public')->assertMissing($coverPath);
     }
 
+    public function test_user_can_create_update_list_and_publish_draft_memory(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $trip = Trip::query()->create([
+            'user_id' => $user->id,
+            'title' => 'Draft trip',
+        ]);
+
+        $createResponse = $this->postJson('/api/v1/drafts', [
+            'note' => 'Loose idea before publishing',
+            'place' => 'Bangkok',
+        ]);
+
+        $createResponse
+            ->assertCreated()
+            ->assertJsonPath('data.draft.status', 'draft')
+            ->assertJsonPath('data.draft.is_draft', true)
+            ->assertJsonPath('data.draft.title', null)
+            ->assertJsonPath('data.draft.trip_id', null);
+
+        $draftId = $createResponse->json('data.draft.id');
+
+        $this->getJson('/api/v1/movements')
+            ->assertOk()
+            ->assertJsonCount(0, 'data.movements');
+
+        $this->getJson('/api/v1/drafts')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.drafts')
+            ->assertJsonPath('data.drafts.0.id', $draftId);
+
+        $this->putJson('/api/v1/drafts/'.$draftId, [
+            'title' => 'Ready memory',
+            'trip_id' => $trip->id,
+            'note' => 'Now it has enough detail',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.draft.title', 'Ready memory')
+            ->assertJsonPath('data.draft.trip_id', $trip->id);
+
+        $this->postJson('/api/v1/drafts/'.$draftId.'/publish')
+            ->assertOk()
+            ->assertJsonPath('data.draft.status', 'published')
+            ->assertJsonPath('data.draft.is_draft', false);
+
+        $this->getJson('/api/v1/drafts')
+            ->assertOk()
+            ->assertJsonCount(0, 'data.drafts');
+
+        $this->getJson('/api/v1/movements')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.movements')
+            ->assertJsonPath('data.movements.0.id', $draftId);
+    }
+
+    public function test_publish_draft_requires_title_trip_and_owned_trip(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $otherTrip = Trip::query()->create([
+            'user_id' => $otherUser->id,
+            'title' => 'Other trip',
+        ]);
+
+        $draftId = $this->postJson('/api/v1/drafts')
+            ->assertCreated()
+            ->json('data.draft.id');
+
+        $this->postJson('/api/v1/drafts/'.$draftId.'/publish')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['title', 'trip_id']);
+
+        $this->postJson('/api/v1/drafts/'.$draftId.'/publish', [
+            'title' => 'Not mine',
+            'trip_id' => $otherTrip->id,
+        ])->assertNotFound();
+
+        $this->assertDatabaseHas('memories', [
+            'id' => $draftId,
+            'status' => 'draft',
+        ]);
+    }
+
+    public function test_user_cannot_access_another_users_draft(): void
+    {
+        $owner = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $trip = Trip::query()->create([
+            'user_id' => $owner->id,
+            'title' => 'Owner trip',
+        ]);
+        $draft = Memory::query()->create([
+            'trip_id' => $trip->id,
+            'user_id' => $owner->id,
+            'title' => 'Private draft',
+            'status' => 'draft',
+        ]);
+
+        Sanctum::actingAs($otherUser);
+
+        $this->getJson('/api/v1/drafts/'.$draft->id)->assertNotFound();
+        $this->putJson('/api/v1/drafts/'.$draft->id, ['title' => 'Changed'])->assertNotFound();
+        $this->postJson('/api/v1/drafts/'.$draft->id.'/publish')->assertNotFound();
+        $this->deleteJson('/api/v1/drafts/'.$draft->id)->assertNotFound();
+    }
+
+    public function test_user_can_delete_draft_and_related_photo_files(): void
+    {
+        Storage::fake('public');
+
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $draftId = $this->post('/api/v1/drafts', [
+            'photos' => [
+                UploadedFile::fake()->createWithContent(
+                    'draft.png',
+                    base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=')
+                ),
+            ],
+        ])
+            ->assertCreated()
+            ->json('data.draft.id');
+
+        $draft = Memory::query()->with('photos')->findOrFail($draftId);
+        $photo = $draft->photos->first();
+
+        Storage::disk('public')->assertExists($photo->photo_path);
+
+        $this->deleteJson('/api/v1/drafts/'.$draftId)
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        Storage::disk('public')->assertMissing($photo->photo_path);
+        $this->assertDatabaseMissing('memories', ['id' => $draftId]);
+        $this->assertDatabaseMissing('memory_photos', ['id' => $photo->id]);
+    }
+
     public function test_user_cannot_access_another_users_trip_or_movement(): void
     {
         $owner = User::factory()->create();

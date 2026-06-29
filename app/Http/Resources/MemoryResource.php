@@ -19,6 +19,8 @@ class MemoryResource extends JsonResource
         return [
             'id' => $this->id,
             'trip_id' => $this->trip_id,
+            'status' => $this->status,
+            'is_draft' => $this->status === 'draft',
             'title' => $this->title,
             'description' => $this->note,
             'location' => $location,

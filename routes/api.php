@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AccountController;
+use App\Http\Controllers\Api\V1\DraftMemoryController;
 use App\Http\Controllers\Api\V1\MemoryController;
 use App\Http\Controllers\Api\V1\MemoryPhotoController;
 use App\Http\Controllers\Api\V1\ProfileController;
@@ -30,6 +31,15 @@ Route::prefix('v1')->group(function () {
         Route::match(['put', 'patch', 'post'], '/profile', [ProfileController::class, 'update']);
         Route::delete('/account', [AccountController::class, 'destroy']);
         Route::get('/user/stats', [UserStatsController::class, 'show']);
+
+        Route::prefix('drafts')->group(function () {
+            Route::get('/', [DraftMemoryController::class, 'index']);
+            Route::post('/', [DraftMemoryController::class, 'store']);
+            Route::get('/{memory}', [DraftMemoryController::class, 'show']);
+            Route::put('/{memory}', [DraftMemoryController::class, 'update']);
+            Route::delete('/{memory}', [DraftMemoryController::class, 'destroy']);
+            Route::post('/{memory}/publish', [DraftMemoryController::class, 'publish']);
+        });
 
         Route::prefix('trips')->group(function () {
             Route::get('/', [TripController::class, 'index']);
