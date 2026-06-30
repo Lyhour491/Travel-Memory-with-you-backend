@@ -84,6 +84,22 @@ class TravelApiTest extends TestCase
         ]);
     }
 
+    public function test_register_rejects_weak_or_mismatched_password(): void
+    {
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Weak Password',
+            'email' => 'weak-password@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'different',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('password')
+            ->assertJsonFragment(['Password confirmation does not match.'])
+            ->assertJsonFragment(['Password must contain uppercase and lowercase letters.'])
+            ->assertJsonFragment(['Password must contain at least one number.'])
+            ->assertJsonFragment(['Password must contain at least one special character.']);
+    }
+
     public function test_forgot_password_stores_hashed_reset_code_for_existing_user(): void
     {
         $user = User::factory()->create([
