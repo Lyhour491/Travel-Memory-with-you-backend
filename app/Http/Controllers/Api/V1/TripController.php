@@ -109,14 +109,21 @@ class TripController extends Controller
 
     public function destroyDraft(Request $request, int $trip): JsonResponse
     {
-        $trip = $this->tripDraftForUser($request, $trip);
+        $trip = $this->tripDraftForUser($request, $trip)->load('memories.photos');
         $coverPhoto = $trip->cover_photo;
+        $photoPaths = $trip->memories
+            ->flatMap(fn ($memory) => $memory->photos->pluck('photo_path'))
+            ->filter()
+            ->values()
+            ->all();
 
         $trip->forceDelete();
 
         if ($coverPhoto) {
             Storage::disk('public')->delete($coverPhoto);
         }
+
+        Storage::disk('public')->delete($photoPaths);
 
         return response()->json([
             'success' => true,

@@ -523,6 +523,10 @@ class TravelApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(0, 'data.movements');
 
+        $this->getJson('/api/v1/movements?status=draft')
+            ->assertOk()
+            ->assertJsonCount(0, 'data.movements');
+
         $this->getJson('/api/v1/drafts')
             ->assertOk()
             ->assertJsonCount(1, 'data.drafts')

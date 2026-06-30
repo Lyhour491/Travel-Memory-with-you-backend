@@ -26,11 +26,7 @@ class MemoryController extends Controller
         $memories = Memory::query()
             ->ownedBy($user->id)
             ->with('photos')
-            ->when(
-                $request->filled('status'),
-                fn ($query) => $query->where('status', $request->string('status')->toString()),
-                fn ($query) => $query->published()
-            )
+            ->published()
             ->when($tripId, function ($query) use ($user, $tripId) {
                 Trip::query()->ownedBy($user->id)->findOrFail($tripId);
 
