@@ -639,6 +639,33 @@ class TravelApiTest extends TestCase
         $this->assertDatabaseMissing('trips', ['id' => $emptyDraftId]);
     }
 
+    public function test_normal_trip_delete_route_does_not_delete_drafts(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $draft = Trip::query()->create([
+            'user_id' => $user->id,
+            'title' => 'Protected draft',
+            'status' => 'draft',
+        ]);
+
+        $this->deleteJson('/api/v1/trips/'.$draft->id)
+            ->assertNotFound()
+            ->assertJsonPath('success', false);
+
+        $this->assertDatabaseHas('trips', [
+            'id' => $draft->id,
+            'status' => 'draft',
+        ]);
+
+        $this->deleteJson('/api/v1/trips/drafts/'.$draft->id)
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseMissing('trips', ['id' => $draft->id]);
+    }
+
     public function test_user_cannot_publish_or_delete_another_users_trip_draft(): void
     {
         $owner = User::factory()->create();

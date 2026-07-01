@@ -20,7 +20,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $user = User::query()->updateOrCreate(
-            ['email' => 'demo@travelmemory.app'],
+            ['email' => 'demo@example.com'],
             [
                 'name' => 'Sokha Traveler',
                 'password' => Hash::make('password123'),
@@ -153,7 +153,7 @@ class DatabaseSeeder extends Seeder
             'is_favorite' => false,
         ], []);
 
-        $this->command?->info('Demo account: demo@travelmemory.app / password123');
+        $this->command?->info('Demo account: demo@example.com / password123');
         $this->command?->info('Seeded '.$user->trips()->count().' trips and '.$user->memories()->count().' movements.');
     }
 

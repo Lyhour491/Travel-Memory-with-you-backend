@@ -193,6 +193,7 @@ class TripController extends Controller
 
         $trip = Trip::query()
             ->ownedBy($user->id)
+            ->published()
             ->with('memories.photos')
             ->findOrFail($trip);
 
@@ -212,6 +213,7 @@ class TripController extends Controller
 
         $trip = Trip::query()
             ->ownedBy($user->id)
+            ->published()
             ->findOrFail($trip);
 
         $data = [
@@ -251,6 +253,7 @@ class TripController extends Controller
 
         $trip = Trip::query()
             ->ownedBy($user->id)
+            ->published()
             ->findOrFail($trip);
 
         $trip->update(['is_favorite' => ! $trip->is_favorite]);
@@ -271,6 +274,7 @@ class TripController extends Controller
 
         $trip = Trip::query()
             ->ownedBy($user->id)
+            ->published()
             ->findOrFail($trip);
 
         $trip->delete();
