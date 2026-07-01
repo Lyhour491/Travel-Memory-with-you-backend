@@ -231,6 +231,7 @@ Movement drafts:
 - `GET /api/v1/drafts/{id}`
 - `PUT /api/v1/drafts/{id}`
 - `DELETE /api/v1/drafts/{id}`
+- `POST /api/v1/drafts/{id}/photos`
 - `POST /api/v1/drafts/{id}/publish`
 
 Photos:

@@ -772,6 +772,50 @@ class TravelApiTest extends TestCase
         $this->assertDatabaseMissing('memory_photos', ['id' => $photo->id]);
     }
 
+    public function test_user_can_upload_photos_to_draft_memory(): void
+    {
+        Storage::fake('public');
+
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $draftId = $this->postJson('/api/v1/drafts', [
+            'note' => 'Photos will be added later',
+        ])
+            ->assertCreated()
+            ->json('data.draft.id');
+
+        $response = $this->post('/api/v1/drafts/'.$draftId.'/photos', [
+            'photos' => [
+                UploadedFile::fake()->createWithContent(
+                    'draft-first.png',
+                    base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=')
+                ),
+                UploadedFile::fake()->createWithContent(
+                    'draft-second.png',
+                    base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=')
+                ),
+            ],
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.draft_id', $draftId)
+            ->assertJsonCount(2, 'data.photos')
+            ->assertJsonStructure(['data' => ['photos' => [['id', 'url', 'order']]]]);
+
+        $draft = Memory::query()->with('photos')->findOrFail($draftId);
+
+        $this->assertCount(2, $draft->photos);
+
+        foreach ($draft->photos as $photo) {
+            $this->assertSame($draftId, $photo->memory_id);
+            $this->assertStringStartsWith('memory_photos/', $photo->photo_path);
+            Storage::disk('public')->assertExists($photo->photo_path);
+        }
+    }
+
     public function test_user_cannot_access_another_users_trip_or_movement(): void
     {
         $owner = User::factory()->create();

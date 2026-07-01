@@ -38,6 +38,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/{memory}', [DraftMemoryController::class, 'show']);
             Route::put('/{memory}', [DraftMemoryController::class, 'update']);
             Route::delete('/{memory}', [DraftMemoryController::class, 'destroy']);
+            Route::post('/{memory}/photos', [DraftMemoryController::class, 'uploadPhotos']);
             Route::post('/{memory}/publish', [DraftMemoryController::class, 'publish']);
         });
 

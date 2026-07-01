@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\MemoryPhotoResource;
 use App\Http\Resources\MemoryResource;
 use App\Models\Memory;
 use App\Models\MemoryPhoto;
@@ -129,6 +130,37 @@ class DraftMemoryController extends Controller
             'message' => 'Draft deleted successfully.',
             'data' => null,
         ]);
+    }
+
+    public function uploadPhotos(Request $request, int $memory): JsonResponse
+    {
+        $draft = $this->draftForUser($request, $memory);
+
+        $request->validate([
+            'photos' => ['required', 'array', 'min:1'],
+            'photos.*' => ['required', 'image', 'max:5120'],
+        ]);
+
+        $uploadedPhotos = [];
+        $baseOrder = (int) $draft->photos()->count();
+
+        foreach ($request->file('photos', []) as $index => $file) {
+            $uploadedPhotos[] = MemoryPhoto::query()->create([
+                'memory_id' => $draft->id,
+                'photo_path' => $file->store('memory_photos', 'public'),
+                'photo_order' => $baseOrder + $index,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Draft photos uploaded successfully.',
+            'data' => [
+                'draft_id' => $draft->id,
+                'memory_id' => $draft->id,
+                'photos' => MemoryPhotoResource::collection(collect($uploadedPhotos)),
+            ],
+        ], 201);
     }
 
     public function publish(Request $request, int $memory): JsonResponse
